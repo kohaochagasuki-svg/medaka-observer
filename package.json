@@ -1,0 +1,11 @@
+{
+  "name": "medaka-observer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "端末内で動画を扱うメダカの観察準備アプリ",
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.cjs",
+    "check": "node --check app.js && node --test --test-isolation=none tests/*.test.cjs"
+  },
+  "devDependencies": { "jsdom": "^26.1.0" }
+}

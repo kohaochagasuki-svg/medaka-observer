@@ -1,0 +1,9 @@
+node_modules/
+coverage/
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.zip
+*.tar.gz
+.DS_Store
