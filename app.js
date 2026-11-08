@@ -14,7 +14,7 @@
   const positionInput = $('line-position');
   const showLine = $('show-line');
   const storageKey = 'medaka-lab.observation.v1';
-  const fieldNames = ['title', 'date', 'temperature', 'fishCount', 'lighting', 'otherConditions', 'memo'];
+  const fieldNames = ['title', 'date', 'temperature', 'fishCount', 'lighting', 'otherConditions', 'memo', 'tankId', 'lightHours'];
   const playbackControls = ['play-pause', 'back', 'forward', 'seek', 'speed'];
   let objectUrl = null;
   let orientation = 'vertical';
@@ -22,6 +22,8 @@
   let loaded = false;
   let saveTimer;
   let dragging = false;
+  let analysisBusy = false;
+  let fileName = '';
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const validDuration = () => Number.isFinite(video.duration) && video.duration > 0;
@@ -34,7 +36,7 @@
     return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${rest}` : `${String(minutes).padStart(2, '0')}:${rest}`;
   };
   function setControls(enabled) {
-    playbackControls.forEach((id) => { $(id).disabled = !enabled; });
+    playbackControls.forEach((id) => { $(id).disabled = !enabled || analysisBusy; });
   }
   function syncPlayback() {
     $('play-icon').textContent = video.paused ? '▶' : 'Ⅱ';
@@ -44,7 +46,7 @@
   function syncTime() {
     $('current-time').textContent = loaded ? timeText(video.currentTime) : '00:00';
     $('duration').textContent = loaded && validDuration() ? timeText(video.duration) : '--:--';
-    seek.disabled = !loaded || !validDuration();
+    seek.disabled = analysisBusy || !loaded || !validDuration();
     seek.value = loaded && validDuration() ? clamp(video.currentTime / video.duration * 100, 0, 100) : 0;
     seek.setAttribute('aria-valuetext', `${timeText(video.currentTime)} / ${validDuration() ? timeText(video.duration) : '--:--'}`);
   }
@@ -74,10 +76,11 @@
     $('horizontal').setAttribute('aria-pressed', String(orientation === 'horizontal'));
     $('start-label').textContent = orientation === 'vertical' ? '左' : '上';
     $('end-label').textContent = orientation === 'vertical' ? '右' : '下';
+    window.dispatchEvent(new CustomEvent('medaka:line'));
   }
   function save() {
     clearTimeout(saveTimer);
-    const conditions = Object.fromEntries(fieldNames.map((name) => [name, form.elements.namedItem(name).value]));
+    const conditions = Object.fromEntries(fieldNames.map((name) => [name, form.elements.namedItem(name)?.value || '']));
     try {
       localStorage.setItem(storageKey, JSON.stringify({ version: 1, conditions, line: { orientation, position, visible: showLine.checked } }));
       $('save-status').textContent = `このブラウザに保存しました · ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
@@ -100,6 +103,7 @@
       for (const name of fieldNames) {
         const value = saved.conditions?.[name];
         const field = form.elements.namedItem(name);
+        if (!field) continue;
         if (typeof value === 'string') field.value = value.slice(0, field.maxLength > 0 ? field.maxLength : 5000);
       }
       if (saved.line?.orientation === 'horizontal') orientation = 'horizontal';
@@ -111,6 +115,7 @@
     }
   }
   function releaseVideo() {
+    window.dispatchEvent(new CustomEvent('medaka:release'));
     loaded = false;
     video.pause();
     video.removeAttribute('src');
@@ -133,6 +138,7 @@
       return;
     }
     releaseVideo();
+    fileName = file.name;
     $('video-message').textContent = '';
     $('empty-state').hidden = true;
     video.hidden = false;
@@ -171,7 +177,7 @@
   ['play', 'pause', 'ended'].forEach((event) => video.addEventListener(event, syncPlayback));
   ['timeupdate', 'durationchange', 'seeked'].forEach((event) => video.addEventListener(event, syncTime));
   $('play-pause').addEventListener('click', async () => {
-    if (!loaded) return;
+    if (!loaded || analysisBusy) return;
     if (!video.paused) { video.pause(); return; }
     const playingUrl = objectUrl;
     try {
@@ -189,10 +195,10 @@
   $('back').addEventListener('click', () => jump(-5));
   $('forward').addEventListener('click', () => jump(5));
   $('speed').addEventListener('change', () => { video.playbackRate = Number($('speed').value); });
-  function setPosition(value) { position = clamp(value, 0, 100); drawLine(); scheduleSave(); }
+  function setPosition(value) { if (analysisBusy) return; position = clamp(value, 0, 100); drawLine(); scheduleSave(); }
   positionInput.addEventListener('input', () => setPosition(Number(positionInput.value)));
   $('reset-line').addEventListener('click', () => setPosition(50));
-  ['vertical', 'horizontal'].forEach((value) => $(value).addEventListener('click', () => { orientation = value; drawLine(); scheduleSave(); }));
+  ['vertical', 'horizontal'].forEach((value) => $(value).addEventListener('click', () => { if (analysisBusy) return; orientation = value; drawLine(); scheduleSave(); }));
   showLine.addEventListener('change', () => { drawLine(); scheduleSave(); });
   function moveLine(event) {
     const rect = overlay.getBoundingClientRect();
@@ -202,7 +208,7 @@
     setPosition(offset / size * 100);
   }
   line.addEventListener('pointerdown', (event) => {
-    if (!loaded || event.isPrimary === false || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (!loaded || analysisBusy || event.isPrimary === false || (event.pointerType === 'mouse' && event.button !== 0)) return;
     dragging = true;
     line.setPointerCapture(event.pointerId);
     moveLine(event);
@@ -210,6 +216,7 @@
   line.addEventListener('pointermove', (event) => { if (dragging && line.hasPointerCapture(event.pointerId)) moveLine(event); });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((event) => line.addEventListener(event, () => { dragging = false; }));
   line.addEventListener('keydown', (event) => {
+    if (analysisBusy) return;
     const directions = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
     if (event.key in directions) { event.preventDefault(); setPosition(position + directions[event.key] * (event.shiftKey ? 10 : 1)); }
     if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); setPosition(event.key === 'Home' ? 0 : 100); }
@@ -222,6 +229,19 @@
   video.addEventListener('resize', drawLine);
   window.addEventListener('pagehide', (event) => { if (saveTimer) save(); if (!event.persisted) releaseVideo(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { if (saveTimer) save(); video.pause(); } });
+  // Small integration surface; the original observation app works without analysis.js.
+  window.medakaObservation = {
+    getState: () => ({ loaded, fileName, duration: video.duration, orientation, position: position / 100, conditions: Object.fromEntries(fieldNames.map(name => [name, form.elements.namedItem(name)?.value || ''])) }),
+    setBusy(value) {
+      analysisBusy = value;
+      if (value) video.pause();
+      setControls(loaded);
+      syncTime();
+      ['choose-video', 'change-video', 'video-file', 'line-position', 'reset-line', 'vertical', 'horizontal'].forEach(id => { $(id).disabled = value; });
+      line.setAttribute('aria-disabled', String(value));
+      line.tabIndex = value ? -1 : 0;
+    }
+  };
   restore();
   drawLine();
 })();

@@ -157,14 +157,16 @@ test('不明な再生時間ではシークを無効化し、非表示時は動�
   assert.equal($('seek').disabled, false);
 });
 
-test('外部送信を防ぐCSP、外部依存のない本番ファイル、未実装の明示', () => {
+test('外部送信を防ぐCSP、外部依存のない本番ファイル、試験版の明示', () => {
   const dom = new JSDOM(html);
   const d = dom.window.document;
   const csp = d.querySelector('[http-equiv="Content-Security-Policy"]').content;
   assert.match(csp, /connect-src 'none'/);
   assert.match(csp, /media-src blob:/);
   for (const el of d.querySelectorAll('[src],link[href]')) assert.equal(/^https?:/.test(el.getAttribute('src') || el.getAttribute('href')), false);
-  assert.equal(d.querySelector('.future-tag').textContent, '未実装');
+  assert.match(csp, /worker-src 'self'/);
+  assert.equal(d.querySelector('.future-tag').textContent, '試験版');
+  assert.match(d.querySelector('.analysis-caution').textContent, /未確認/);
   assert.equal(/\b(fetch|XMLHttpRequest|FileReader|readAsDataURL|arrayBuffer)\s*\(/.test(script), false);
   dom.window.close();
 });
