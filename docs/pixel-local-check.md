@@ -1,10 +1,10 @@
 # Pixel 8aのChromeで動作確認する（公開不要）
 
-無料のTermuxとPythonを使って、**Pixel自身の中だけ**でアプリを起動します。Cloudflare PagesやGitHub Pagesの設定は不要です。GitHubリポジトリは非公開のまま使えます。
+無料のTermuxとPythonを使って、**Pixel自身の中だけ**でアプリを起動します。Cloudflare PagesやGitHub Pagesの設定は不要です。リポジトリの公開設定や既存の公開ページを変更せずに使えます。
 
 ## 1. PRのソースをダウンロードする
 
-1. PixelのChromeでGitHubにログインし、[実装ブランチ](https://github.com/kohaochagasuki-svg/medaka-observer/tree/codex/medaka-observation-setup) を開きます。
+1. PixelのChromeでGitHubにログインし、[実装ブランチ](https://github.com/kohaochagasuki-svg/medaka-observer/tree/codex/medaka-auto-count) を開きます。
 2. **Code → Download ZIP** を選びます。表示されない場合はChromeのメニューで「PC版サイト」を有効にします。
 3. ZIPは通常「ダウンロード」に保存されます。**ZIPを展開せずに**次へ進んで構いません。
 
@@ -39,7 +39,7 @@ if not archives:
 archive = max(archives, key=lambda p: p.stat().st_mtime)
 target = Path.home() / 'medaka-observer-local'
 target.mkdir(exist_ok=True)
-needed = {'index.html', 'styles.css', 'app.js', 'icon.svg'}
+needed = {'index.html', 'styles.css', 'app.js', 'icon.svg', 'analysis-core.js', 'analysis-worker.js', 'analysis-storage.js', 'analysis.js'}
 with ZipFile(archive) as bundle:
     entries = {}
     for item in bundle.infolist():
@@ -49,7 +49,7 @@ with ZipFile(archive) as bundle:
         elif len(parts) == 1 and parts[0] in needed:
             entries[parts[0]] = item
     if set(entries) != needed:
-        raise SystemExit('必要な4ファイルがそろっていません。実装ブランチのZIPを取得してください。')
+        raise SystemExit('必要な8ファイルがそろっていません。実装ブランチのZIPを取得してください。')
     for name, item in entries.items():
         (target / name).write_bytes(bundle.read(item))
 print('準備できました:', archive.name)
@@ -68,7 +68,7 @@ python -m http.server 8000 --bind 127.0.0.1 --directory ~/medaka-observer-local
 
 Chromeのアドレス欄に **`http://127.0.0.1:8000`** を入力します。検索欄ではなくURLとして開いてください。これはPixel自身のアドレスで、外部公開URLではありません。サーバーはこの端末からだけ接続できるように設定しています。
 
-動画や観察条件はGitHubにもローカルサーバーにも送信しません。サーバーが配信するのはアプリの4ファイルです。
+動画や観察条件はGitHubにもローカルサーバーにも送信しません。サーバーが配信するのはアプリの8ファイルです。
 
 | 操作 | 確認すること |
 | --- | --- |
@@ -90,4 +90,13 @@ Chromeのアドレス欄に **`http://127.0.0.1:8000`** を入力します。検
 - コード更新：最新ZIPをダウンロードし、サーバー停止後に手順3からやり直します。Chrome側で再読み込みしてください。表示が更新されない場合はChromeのシークレットタブで確認すると、既存の観察条件を消さずに比較できます。
 - 起動できない：Termuxのサーバーが動いているか、URLの `http`・IP・ポート番号が一致しているか確認してください。`Address already in use` は、すでにサーバーが起動している可能性があります。
 
-この手順は実機でまだ検証していません。結果は [動作確認記録](verification.md) の未確認項目に沿って記録してください。自動解析やCSV保存のボタンがないのは、今回の実装範囲どおりです。
+## 自動計測を確認する
+
+1. 水槽IDと光の照射時間（時間/日）を入力し、匹数を5にします。
+2. 中央線を合わせ、まず先頭10秒で検出枠を確認します。魚全体を囲んでいるか、気泡や反射を拾っていないか見ます。
+3. 必要に応じて背景との差・候補面積・器具の除外範囲を調整し、先頭3分を解析します。処理中はChromeを前面に保ってください。処理中のシークは自動で進みます。音声は再生しません。
+4. 要確認区間と横断候補を映像で確認し、状態を「確認済み」か「除外」にします。見落とした横断は手動追加できます。
+5. 独立した手動カウントと比較し、CSV保存を試します。未確認と中断結果の区別、水槽ID、照射時間がCSVに残ることを確認します。
+6. 中断ボタンが背景推定中にも処理中にも効き、通常の動画操作へ戻れることを確認します。中断した結果を3分全体の値としないでください。
+
+この手順はPixel実機でまだ検証していません。結果は [動作確認記録](verification.md) に沿って記録してください。最初は先頭3分で検出精度・操作・発熱を確認し、その後30分へ進めてください。

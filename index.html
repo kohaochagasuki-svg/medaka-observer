@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#12685d">
   <meta name="description" content="メダカの動画を端末内で観察し、中央線と観察条件を設定する高校生のための生物探究ノート。">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src blob:; worker-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>めだかラボ｜活動量の観察ノート</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
+  <script src="analysis-core.js" defer></script>
+  <script src="analysis-storage.js" defer></script>
+  <script src="analysis.js" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -31,6 +34,7 @@
           <div class="video-stage" id="video-stage">
             <video id="video" playsinline preload="metadata" aria-label="観察用の動画" hidden></video>
             <div class="empty-state" id="empty-state"><div class="empty-illustration" aria-hidden="true"><svg viewBox="0 0 180 100"><path class="tank" d="M20 16v66h140V16M20 36c16-8 25 8 42 0s26 8 43 0 27 8 55 0"/><path class="fish" d="M57 58c12-17 30-17 44 0-14 17-32 17-44 0Zm0 0-10-11v22Z"/><circle cx="88" cy="55" r="2"/><path class="axis" d="M115 8v82"/><circle class="bubble" cx="129" cy="56" r="4"/><circle class="bubble" cx="137" cy="43" r="2"/></svg></div><h3>観察する動画を選びましょう</h3><p>水槽全体が映っている動画がおすすめです。</p><button type="button" class="button primary" id="choose-video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 15v5h16v-5"/></svg>動画を読み込む</button><small>MP4・WebM など、Chromeで再生できる動画</small></div>
+            <canvas id="tracking-overlay" aria-label="検出候補の位置と追跡の記録" hidden></canvas>
             <div id="line-overlay" hidden><div id="center-line" class="center-line" role="slider" tabindex="0" aria-label="動画上の中央線の位置" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span class="line-caption">中央線</span><span class="line-handle" aria-hidden="true">↔</span></div></div>
           </div>
           <input id="video-file" class="visually-hidden" type="file" accept="video/*" aria-label="観察する動画ファイル">
@@ -43,12 +47,57 @@
         <div class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg><div><strong>動画を外部に送信しません</strong><p>選んだ動画はこの端末内で再生されます。30分の動画も、全フレームを一度に読み込まずに扱います。</p></div></div>
       </section>
 
-      <aside class="notes-column"><section class="conditions card" aria-labelledby="conditions-heading"><div class="section-heading"><h2 id="conditions-heading"><span class="section-number">02</span> 観察条件</h2><span class="tiny-label">端末に保存</span></div><p class="section-description">比較できるように、観察時の条件を残しましょう。</p><form id="conditions-form"><label for="observation-title">観察タイトル</label><input id="observation-title" name="title" type="text" maxlength="120" placeholder="例：水温による活動量の変化"><div class="field-pair"><div><label for="observation-date">観察日</label><input id="observation-date" name="date" type="date"></div><div><label for="water-temperature">水温 <span>（℃）</span></label><input id="water-temperature" name="temperature" type="number" min="0" max="50" step="0.1" placeholder="例：25"></div></div><div class="field-pair"><div><label for="fish-count">メダカの数 <span>（匹）</span></label><input id="fish-count" name="fishCount" type="number" min="1" step="1" placeholder="例：1"></div><div><label for="lighting">明るさ</label><select id="lighting" name="lighting"><option value="">選択してください</option><option>明るい</option><option>ふつう</option><option>暗い</option><option>その他</option></select></div></div><label for="other-conditions">その他の条件</label><input id="other-conditions" name="otherConditions" type="text" maxlength="500" placeholder="例：給餌から1時間、水深10cm"><div class="memo-heading"><label for="memo">観察メモ</label><span>気づいたことを自由に</span></div><textarea id="memo" name="memo" rows="5" maxlength="5000" placeholder="泳ぎ方、周囲の環境、撮影時の気づきなどを記録しましょう。"></textarea><button class="button save-button" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l4 4v14H3V3Zm3 0v7h10V3M7 21v-7h10v7"/></svg>観察条件を保存</button></form><p id="save-status" class="save-status" role="status" aria-live="polite">入力した条件はこのブラウザに自動保存されます。</p><p class="storage-note">動画は保存されません。ブラウザのデータを削除すると、記録も消えます。</p></section>
-      <section class="coming-next"><div class="future-heading"><span class="future-icon" aria-hidden="true">✧</span><h3>これからできるようになること</h3><span class="future-tag">未実装</span></div><p>メダカを自動で追跡し、中央線を横断した回数を測定する機能を予定しています。</p><details><summary>今後の開発予定を見る <span aria-hidden="true">＋</span></summary><ul><li>メダカの自動検出・追跡</li><li>横断回数の自動計測</li><li>解析の進捗表示・中止</li><li>誤検出の確認・修正</li><li>測定結果のCSV保存</li></ul><p>現在は動画の観察と条件の記録のみ利用できます。</p></details></section></aside>
+      <aside class="notes-column"><section class="conditions card" aria-labelledby="conditions-heading"><div class="section-heading"><h2 id="conditions-heading"><span class="section-number">02</span> 観察条件</h2><span class="tiny-label">端末に保存</span></div><p class="section-description">比較できるように、観察時の条件を残しましょう。</p><form id="conditions-form"><div class="field-pair"><div><label for="tank-id">水槽ID</label><input id="tank-id" name="tankId" type="text" maxlength="80" placeholder="例：A水槽"></div><div><label for="light-hours">光の照射時間 <span>（時間/日）</span></label><input id="light-hours" name="lightHours" type="number" min="0" max="24" step="0.5" placeholder="例：8"></div></div><label for="observation-title">観察タイトル</label><input id="observation-title" name="title" type="text" maxlength="120" placeholder="例：水温による活動量の変化"><div class="field-pair"><div><label for="observation-date">観察日</label><input id="observation-date" name="date" type="date"></div><div><label for="water-temperature">水温 <span>（℃）</span></label><input id="water-temperature" name="temperature" type="number" min="0" max="50" step="0.1" placeholder="例：25"></div></div><div class="field-pair"><div><label for="fish-count">メダカの数 <span>（匹）</span></label><input id="fish-count" name="fishCount" type="number" min="1" max="10" step="1" value="5" placeholder="例：5"></div><div><label for="lighting">明るさ</label><select id="lighting" name="lighting"><option value="">選択してください</option><option>明るい</option><option>ふつう</option><option>暗い</option><option>その他</option></select></div></div><label for="other-conditions">その他の条件</label><input id="other-conditions" name="otherConditions" type="text" maxlength="500" placeholder="例：給餌から1時間、水深10cm"><div class="memo-heading"><label for="memo">観察メモ</label><span>気づいたことを自由に</span></div><textarea id="memo" name="memo" rows="5" maxlength="5000" placeholder="泳ぎ方、周囲の環境、撮影時の気づきなどを記録しましょう。"></textarea><button class="button save-button" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l4 4v14H3V3Zm3 0v7h10V3M7 21v-7h10v7"/></svg>観察条件を保存</button></form><p id="save-status" class="save-status" role="status" aria-live="polite">入力した条件はこのブラウザに自動保存されます。</p><p class="storage-note">動画は保存されません。ブラウザのデータを削除すると、記録も消えます。</p></section>
+      <section class="coming-next"><div class="future-heading"><span class="future-icon" aria-hidden="true">✧</span><h3>中央線の横断を自動で探す</h3><span class="future-tag">試験版</span></div><p>固定カメラ向けの動体検出です。魚の種類や個体を保証するAIではありません。自動候補を映像で確認してから比較に使ってください。</p><a class="text-button" href="#analysis-panel">自動計測と確認へ ↓</a></section></aside>
     </div>
 
-    <section id="guide" class="guide"><div><p class="eyebrow">QUICK GUIDE</p><h2>観察をはじめる、3つのステップ</h2></div><ol><li><span>1</span><div><strong>動画を読み込む</strong><p>スマホに保存した動画を選択。再生・一時停止して映像を確認します。</p></div></li><li><span>2</span><div><strong>水槽の中央に線を合わせる</strong><p>縦・横を選び、線をドラッグ。水槽の向きに合わせて調整します。</p></div></li><li><span>3</span><div><strong>条件と気づきを残す</strong><p>水温や匹数を入力。条件をそろえることが、比較の第一歩です。</p></div></li></ol></section>
-    <footer><span class="footer-brand">めだかラボ <span>／</span> 小さな発見から、はじまる探究。</span><span>観察準備版 · v0.1</span></footer>
+    <section id="analysis-panel" class="analysis-panel card" aria-labelledby="analysis-heading">
+      <div class="section-heading"><h2 id="analysis-heading"><span class="section-number">03</span> 中央線の自動計測</h2><span class="experimental-badge">試験版 · 要目視確認</span></div>
+      <p class="analysis-intro">まずは先頭3分で、手動カウントと比較しましょう。カメラを固定し、魚と背景の色の差がある動画を使います。動く反射や気泡も候補になることがあります。</p>
+      <p class="analysis-caution">自動候補は未確認のまま記録します。追跡が途切れた区間をまたぐ横断は加算しません。0件でも「横断なし」とは限りません。動画変更・再解析・ページ再読込で結果は消えるため、確認後はCSVを保存してください。</p>
+      <div class="analysis-grid">
+        <div>
+          <form id="analysis-settings">
+            <fieldset id="analysis-fieldset"><legend>解析の設定</legend>
+              <div class="field-pair"><div><label for="analysis-limit">解析する長さ</label><select id="analysis-limit"><option value="10">先頭10秒（調整用）</option><option value="180" selected>先頭3分（推奨）</option><option value="1800">先頭30分（長時間）</option></select></div><div><label for="analysis-fps">毎秒の解析枚数</label><select id="analysis-fps"><option value="5">5枚（軽め）</option><option value="10" selected>10枚（標準）</option><option value="15">15枚（速い動き用）</option></select></div></div>
+              <details><summary>検出の調整・器具の除外</summary><p class="hint">小さい気泡は面積と形で抑えます。器具や反射が動く範囲は除外してください。魚が除外範囲に入ると追跡は切れます。面積は縮小後の画像の値です。</p>
+                <div class="field-pair"><div><label for="detection-threshold">背景との差（大きいほど鈍感）</label><input id="detection-threshold" type="number" value="22" min="5" max="100" required></div><div><label for="crossing-band">線の両側の判定帯（%）</label><input id="crossing-band" type="number" value="1.5" min="0" max="10" step="0.5" required></div></div>
+                <div class="field-pair"><div><label for="min-area">候補の最小面積（px）</label><input id="min-area" type="number" value="12" min="3" max="2000" required></div><div><label for="max-area">候補の最大面積（px）</label><input id="max-area" type="number" value="1500" min="4" max="20000" required></div></div>
+                <p class="field-label">水槽内の解析範囲（映像全体に対する%）</p>
+                <div class="roi-inputs"><label>左端<input id="roi-left" type="number" value="0" min="0" max="99" required></label><label>上端<input id="roi-top" type="number" value="0" min="0" max="99" required></label><label>右端<input id="roi-right" type="number" value="100" min="1" max="100" required></label><label>下端<input id="roi-bottom" type="number" value="100" min="1" max="100" required></label></div>
+                <p class="field-label">除外する長方形（最大8件・%）</p>
+                <div class="roi-inputs"><label>左端<input id="exclude-x" type="number" value="0" min="0" max="99"></label><label>上端<input id="exclude-y" type="number" value="0" min="0" max="99"></label><label>幅<input id="exclude-w" type="number" value="10" min="1" max="100"></label><label>高さ<input id="exclude-h" type="number" value="10" min="1" max="100"></label></div>
+                <button type="button" class="secondary-button" id="add-exclusion">除外範囲を追加</button><ul id="exclusion-list" class="exclusion-list"></ul>
+              </details>
+              <p class="hint">観察条件の匹数（標準5匹）を使います。映像を長辺480px以下に縮小して1枚ずつ解析します。処理中は動画操作と中央線の変更を一時的に止めます。</p>
+              <button type="submit" class="button primary" id="start-analysis" disabled>自動計測を開始</button>
+            </fieldset>
+          </form>
+          <button type="button" class="secondary-button" id="stop-analysis" disabled>解析を中断</button>
+          <progress id="analysis-progress" max="100" value="0" aria-label="自動解析の進捗"></progress>
+          <p id="analysis-status" class="analysis-status" role="status" aria-live="polite">動画を読み込むと解析できます。</p>
+          <p id="run-info" class="hint"></p>
+          <label class="overlay-toggle"><input type="checkbox" id="show-tracks" checked> 検出枠・候補ID・軌跡を映像に重ねる</label>
+          <p id="overlay-status" class="hint">記録した時刻の映像で追跡結果を確認できます。IDは個体の識別を保証しません。</p>
+        </div>
+        <div class="analysis-results">
+          <div class="count-cards"><div><span>確認済み合計</span><output id="count-confirmed">—</output></div><div><span id="positive-label">左→右</span><output id="count-positive">—</output></div><div><span id="negative-label">右→左</span><output id="count-negative">—</output></div></div>
+          <p id="candidate-counts" class="result-note">自動候補はまだありません。</p>
+          <p id="tracking-quality" class="result-note"></p>
+          <label for="review-issue">見直す必要がある区間</label><select id="review-issue" disabled><option value="">解析後に表示します</option></select><button type="button" id="jump-issue" class="secondary-button" disabled>選んだ区間の映像へ</button>
+          <button type="button" id="export-csv" class="button primary" disabled>結果をCSVで保存</button><p class="hint">確認状態・途中結果の区別・解析設定・照射時間・修正前の値も保存します。結果と追跡記録は再読込では復元しません。</p>
+        </div>
+      </div>
+      <section class="event-review" aria-labelledby="review-heading"><div class="section-heading"><h3 id="review-heading">横断候補を確認・修正する</h3><span id="event-page-label">0件</span></div><p class="hint">「映像へ」で少し前から再生し、全身が横断したか確認します。時刻・方向の修正、確認済みへの変更、誤検出の除外ができます。「確認済み」だけが合計に入ります。除外した記録もCSVに残ります。</p>
+        <p class="hint">スマホでは表を横にスワイプすると、「確認状態」と「メモ」を編集できます。</p><div class="event-scroll" tabindex="0" aria-label="横断候補の表。横方向にスクロールできます"><table class="event-table"><thead><tr><th>映像</th><th>時刻（秒）</th><th>方向</th><th>候補ID</th><th>確認状態</th><th>メモ</th></tr></thead><tbody id="event-rows"><tr><td colspan="6">動画を解析すると、横断候補が表示されます。</td></tr></tbody></table></div>
+        <div class="pagination"><button type="button" id="events-prev" class="secondary-button" disabled>前の20件</button><button type="button" id="events-next" class="secondary-button" disabled>次の20件</button></div>
+      </section>
+      <form id="manual-event-form" class="manual-form"><h3>見落とした横断を手動で追加</h3><div class="manual-inputs"><label>横断時刻（秒）<input id="manual-time" type="number" min="0" step="0.01" value="0" required></label><button type="button" id="use-current-time" class="secondary-button" disabled>現在の時刻を使う</button><label>方向<select id="manual-direction"><option value="positive">左→右</option><option value="negative">右→左</option></select></label><label>確認メモ<input id="manual-note" type="text" maxlength="500" placeholder="例：重なりで見落とし"></label><button type="submit" id="add-manual-event" class="secondary-button" disabled>確認済みとして1件追加</button></div></form>
+      <form id="comparison-form" class="comparison-form"><h3>独立した手動カウントと比較</h3><p class="hint">同じ対象区間を、候補一覧に頼らず手動で数えて入力します。修正前の自動候補数との差を表示します。合計の一致だけでは精度を評価できないので、候補時刻ごとの照合も行ってください。</p><div class="manual-inputs"><label><span id="manual-positive-label">左→右</span><input id="reference-positive" type="number" min="0" step="1" required></label><label><span id="manual-negative-label">右→左</span><input id="reference-negative" type="number" min="0" step="1" required></label><button type="submit" id="compare-counts" class="secondary-button" disabled>差を確認</button></div><p id="comparison-result" role="status"></p></form>
+      <p id="review-status" role="status" aria-live="polite"></p>
+    </section>
+    <section id="guide" class="guide"><div><p class="eyebrow">QUICK GUIDE</p><h2>まず設定をそろえて比較する</h2></div><ol><li><span>1</span><div><strong>水槽と照射時間を記録</strong><p>同じ撮影位置・画質・観察時間で比較します。</p></div></li><li><span>2</span><div><strong>先頭3分で解析を試す</strong><p>魚の大きさや除外範囲を調整し、候補を確認します。</p></div></li><li><span>3</span><div><strong>映像と照合してCSV保存</strong><p>追跡できなかった区間も見直し、不確かさを残します。</p></div></li></ol></section>
+    <footer><span class="footer-brand">めだかラボ <span>／</span> 小さな発見から、はじまる探究。</span><span>自動計測試験版 · v0.2</span></footer>
   </main>
 </body>
 </html>

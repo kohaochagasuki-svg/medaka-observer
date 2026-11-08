@@ -1,11 +1,16 @@
 {
   "name": "medaka-observer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "端末内で動画を扱うメダカの観察準備アプリ",
   "scripts": {
     "test": "node --test --test-isolation=none tests/*.test.cjs",
-    "check": "node --check app.js && node --test --test-isolation=none tests/*.test.cjs"
+    "check": "node --check app.js && node --check analysis-core.js && node --check analysis.js && node --check analysis-worker.js && node --check analysis-storage.js && node --test --test-isolation=none tests/*.test.cjs",
+    "test:video": "python3 tests/generate-video.py",
+    "test:browser": "playwright test"
   },
-  "devDependencies": { "jsdom": "^26.1.0" }
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "jsdom": "^26.1.0"
+  }
 }
